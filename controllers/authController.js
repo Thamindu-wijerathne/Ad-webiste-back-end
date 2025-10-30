@@ -18,7 +18,7 @@ export const signup = async (req, res) => {
 
     console.log(fullName, email, password, referralCode, role, status, phone)
 
-    const user = await User.create({ fullName, email, password, phone, referralCode , role, status, });
+    const user = await User.create({ fullName, email, password, phone, referrelBy: referralCode , role, status, });
     console.log("signup user : ", user);
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });

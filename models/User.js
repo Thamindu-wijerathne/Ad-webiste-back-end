@@ -8,7 +8,9 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   role: {type: String},
   status: {type: String},
-  phone: {type:String}
+  phone: {type: String},
+  referrals: {type: String},
+  referrelBy: {type: String}
 });
 
 export default mongoose.model("User", userSchema);

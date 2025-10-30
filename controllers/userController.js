@@ -16,11 +16,13 @@ export const getUser = async (req, res) => {
 // Update user info
 export const updateUser = async (req, res) => {
   const { fullName, email, password, status, role, phone } = req.body;
-  const userId = req.params.id; // <-- use ID from URL
-  console.log(fullName, email, password, status, role, phone, req.params.id)
+  const userId = req.params.id;
+
   try {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    const prevStatus = user.status; // Save previous status
 
     if (fullName) user.fullName = fullName;
     if (email) user.email = email;
@@ -30,7 +32,19 @@ export const updateUser = async (req, res) => {
     if (phone) user.phone = phone;
 
     await user.save();
-    res.json(user); // return updated user
+
+    // ✅ If status changed from inactive → active, increment referral count
+    if (prevStatus === "inactive" && status === "active" && user.referrelBy) {
+      const referrer = await User.findOne({ email: user.referrelBy });
+      if (referrer) {
+        // If referrals is not set, start from 0
+        const currentCount = Number(referrer.referrals) || 0;
+        referrer.referrals = (currentCount + 1).toString();
+        await referrer.save();
+      }
+    }
+
+    res.json(user);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: err.message });

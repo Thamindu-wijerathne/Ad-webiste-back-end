@@ -4,7 +4,8 @@ import {
   getProductRatings, 
   getUserRatings, 
   checkUserRating,
-  deleteRating 
+  deleteRating,
+  getAllRatings 
 } from "../controllers/ratingController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 
@@ -24,5 +25,8 @@ router.get("/check/:productId", verifyToken, checkUserRating);
 
 // Delete rating
 router.delete("/:id", verifyToken, deleteRating);
+
+// ✅ Admin: Get all ratings
+router.get("/all", verifyToken, getAllRatings);
 
 export default router;

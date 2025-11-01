@@ -8,21 +8,30 @@ export const submitRating = async (req, res) => {
     const { productId, rating, comment } = req.body;
     const userId = req.user.id; // From JWT token
 
+    console.log("📝 Rating submission attempt:", { productId, userId, rating });
+
     // Validate rating
     if (!rating || rating < 1 || rating > 5) {
       return res.status(400).json({ message: "Rating must be between 1 and 5" });
     }
 
-    // Check if user has remaining attempts
+    // Check if user exists
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if product exists
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
     }
 
     // ❌ Check if user already rated this product (NO EDITING)
     const existingRating = await Rating.findOne({ productId, userId });
 
     if (existingRating) {
+      console.log("❌ User already rated this product");
       return res.status(400).json({ 
         success: false,
         message: "You have already rated this product. Editing is not allowed." 
@@ -31,8 +40,13 @@ export const submitRating = async (req, res) => {
 
     // Check if user has remaining attempts for NEW ratings
     if (user.remaining <= 0) {
-      return res.status(403).json({ message: "No remaining attempts" });
+      return res.status(403).json({ 
+        success: false,
+        message: "No remaining attempts" 
+      });
     }
+
+    console.log("✅ Creating new rating...");
 
     // Create new rating
     const newRating = new Rating({
@@ -43,21 +57,27 @@ export const submitRating = async (req, res) => {
     });
 
     await newRating.save();
+    console.log("✅ Rating saved:", newRating._id);
 
     // Decrease user's remaining attempts
     user.remaining -= 1;
     await user.save();
+    console.log("✅ User remaining updated:", user.remaining);
 
-    // Update product's average rating
-    await updateProductRating(productId);
+    // ✅ SYNCHRONOUSLY update product's average rating
+    const updatedProduct = await updateProductRating(productId);
+    console.log("✅ Product rating updated:", {
+      avgRating: updatedProduct.rating,
+      totalRatings: updatedProduct.ratedCount
+    });
 
     // Add income to admin (product owner)
-    const product = await Product.findById(productId);
-    if (product && product.income) {
+    if (product.income && product.income > 0) {
       const admin = await User.findOne({ email: product.addedBy });
       if (admin) {
         admin.balance = (admin.balance || 0) + product.income;
         await admin.save();
+        console.log("💰 Admin earned:", product.income, "New balance:", admin.balance);
       }
     }
 
@@ -65,33 +85,73 @@ export const submitRating = async (req, res) => {
       success: true,
       message: "✅ Rating submitted successfully", 
       rating: newRating,
-      remaining: user.remaining 
+      remaining: user.remaining,
+      productRating: {
+        average: updatedProduct.rating,
+        count: updatedProduct.ratedCount
+      }
     });
   } catch (err) {
-    console.error("Error submitting rating:", err);
-    res.status(500).json({ message: "❌ Error submitting rating", error: err.message });
+    console.error("❌ Error submitting rating:", err);
+    res.status(500).json({ 
+      success: false,
+      message: "❌ Error submitting rating", 
+      error: err.message 
+    });
   }
 };
 
-// ✅ Helper: Update Product Average Rating
+// ✅ Helper: Update Product Average Rating (SYNCHRONOUS)
 async function updateProductRating(productId) {
+  console.log("📊 Calculating average rating for product:", productId);
+
+  // Get all ratings for this product
   const ratings = await Rating.find({ productId });
   
+  console.log("📊 Found ratings:", ratings.length);
+
   if (ratings.length === 0) {
-    await Product.findByIdAndUpdate(productId, { 
-      rating: 0, 
-      ratedCount: 0 
-    });
-    return;
+    // No ratings yet, reset to 0
+    const updated = await Product.findByIdAndUpdate(
+      productId, 
+      { 
+        rating: 0, 
+        ratedCount: 0 
+      },
+      { new: true } // Return updated document
+    );
+    console.log("📊 No ratings, reset to 0");
+    return updated;
   }
 
-  const totalRating = ratings.reduce((sum, r) => sum + r.rating, 0);
+  // Calculate average
+  // Example: User1 rates 3, User2 rates 5
+  // Total = 3 + 5 = 8
+  // Average = 8 / 2 = 4.0
+  const totalRating = ratings.reduce((sum, r) => {
+    console.log("  Adding rating:", r.rating);
+    return sum + r.rating;
+  }, 0);
+  
   const avgRating = totalRating / ratings.length;
 
-  await Product.findByIdAndUpdate(productId, {
-    rating: avgRating,
-    ratedCount: ratings.length
+  console.log("📊 Calculation:", {
+    totalRating,
+    count: ratings.length,
+    average: avgRating.toFixed(2)
   });
+
+  // Update product with new average and count
+  const updated = await Product.findByIdAndUpdate(
+    productId, 
+    {
+      rating: parseFloat(avgRating.toFixed(2)), // Round to 2 decimals
+      ratedCount: ratings.length
+    },
+    { new: true } // Return updated document
+  );
+
+  return updated;
 }
 
 // ✅ Get All Ratings for a Product
@@ -103,7 +163,17 @@ export const getProductRatings = async (req, res) => {
       .populate("userId", "fullName email")
       .sort({ createdAt: -1 });
 
-    res.json(ratings);
+    // Calculate average for verification
+    const totalRating = ratings.reduce((sum, r) => sum + r.rating, 0);
+    const avgRating = ratings.length > 0 ? totalRating / ratings.length : 0;
+
+    res.json({
+      ratings,
+      summary: {
+        total: ratings.length,
+        average: parseFloat(avgRating.toFixed(2))
+      }
+    });
   } catch (err) {
     console.error("Error fetching ratings:", err);
     res.status(500).json({ message: "❌ Error fetching ratings" });
@@ -116,8 +186,10 @@ export const getUserRatings = async (req, res) => {
     const userId = req.user.id;
 
     const ratings = await Rating.find({ userId })
-      .populate("productId", "name imageUrl")
+      .populate("productId", "name imageUrl rating ratedCount")
       .sort({ createdAt: -1 });
+
+    console.log("📋 User ratings fetched:", ratings.length);
 
     res.json(ratings);
   } catch (err) {
@@ -145,7 +217,7 @@ export const checkUserRating = async (req, res) => {
   }
 };
 
-// ✅ Delete Rating (Optional - if you want to allow deletion)
+// ✅ Delete Rating (Optional - recalculates average after deletion)
 export const deleteRating = async (req, res) => {
   try {
     const { id } = req.params;
@@ -157,14 +229,39 @@ export const deleteRating = async (req, res) => {
       return res.status(404).json({ message: "Rating not found" });
     }
 
+    const productId = rating.productId;
+
     await rating.deleteOne();
+    console.log("🗑️ Rating deleted:", id);
 
-    // Update product rating
-    await updateProductRating(rating.productId);
+    // Recalculate product rating after deletion
+    const updatedProduct = await updateProductRating(productId);
+    console.log("📊 Product rating recalculated after deletion");
 
-    res.json({ message: "✅ Rating deleted successfully" });
+    res.json({ 
+      message: "✅ Rating deleted successfully",
+      productRating: {
+        average: updatedProduct.rating,
+        count: updatedProduct.ratedCount
+      }
+    });
   } catch (err) {
     console.error("Error deleting rating:", err);
     res.status(500).json({ message: "❌ Error deleting rating" });
+  }
+};
+
+// ✅ Admin: Get All Ratings (for admin dashboard)
+export const getAllRatings = async (req, res) => {
+  try {
+    const ratings = await Rating.find()
+      .populate("userId", "fullName email")
+      .populate("productId", "name imageUrl")
+      .sort({ createdAt: -1 });
+
+    res.json(ratings);
+  } catch (err) {
+    console.error("Error fetching all ratings:", err);
+    res.status(500).json({ message: "❌ Error fetching ratings" });
   }
 };

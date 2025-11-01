@@ -9,6 +9,7 @@ const productSchema = new mongoose.Schema({
   addedBy: { type: String, required: true }, // admin email
   createdAt: { type: Date, default: Date.now },
   price: {type: Number},
+  income: { type: Number, default: 0 },
   reacts: {type: Number}
 });
 

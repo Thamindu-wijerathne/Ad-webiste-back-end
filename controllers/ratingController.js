@@ -5,10 +5,10 @@ import User from "../models/User.js";
 // ✅ Submit Rating (One-time only, no editing allowed)
 export const submitRating = async (req, res) => {
   try {
-    const { productId, rating, comment } = req.body;
+    const { productId, rating, comment, earning } = req.body;
     const userId = req.user.id; // From JWT token
 
-    console.log("📝 Rating submission attempt:", { productId, userId, rating });
+    console.log("📝 Rating submission attempt:", { productId, userId, rating, earning });
 
     // Validate rating
     if (!rating || rating < 1 || rating > 5) {
@@ -53,6 +53,7 @@ export const submitRating = async (req, res) => {
       productId,
       userId,
       rating,
+      earning,
       comment: comment || ""
     });
 

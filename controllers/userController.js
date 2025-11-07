@@ -219,6 +219,16 @@ export const getCurrentBalance = async (req, res) => {
   }
 };
 
+export const getRemaining = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ remaining: user.remaining || 0 });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch remaining attempts" });
+  }
+}
 
 
 

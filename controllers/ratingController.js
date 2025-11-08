@@ -27,22 +27,21 @@ export const submitRating = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // ❌ Check if user already rated this product (NO EDITING)
+    // ❌ Check if user already rated this product
     const existingRating = await Rating.findOne({ productId, userId });
-
     if (existingRating) {
       console.log("❌ User already rated this product");
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "You have already rated this product. Editing is not allowed." 
+        message: "You have already rated this product. Editing is not allowed."
       });
     }
 
-    // Check if user has remaining attempts for NEW ratings
+    // Check remaining attempts
     if (user.remaining <= 0) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         success: false,
-        message: "No remaining attempts" 
+        message: "No remaining attempts"
       });
     }
 
@@ -63,15 +62,20 @@ export const submitRating = async (req, res) => {
     // Decrease user's remaining attempts
     user.remaining -= 1;
 
+    // ✅ Add earning to user's balance and total earning
+    const earnValue = parseFloat(earning) || 0;
+    user.balance = (user.balance || 0) + earnValue;
+    user.earning = (user.earning || 0) + earnValue;
+
     // ✅ Activate lucky draw if remaining == luckydrawAttempt
-    if (user.luckydrawAttempt == user.remaining ) {
+    if (user.luckydrawAttempt === user.remaining) {
       user.luckydrawStatus = "active";
     }
 
     await user.save();
-    console.log("✅ User remaining updated:", user.remaining);
+    console.log("✅ User updated: balance =", user.balance, "earning =", user.earning, "remaining =", user.remaining);
 
-    // ✅ SYNCHRONOUSLY update product's average rating
+    // ✅ Update product’s average rating
     const updatedProduct = await updateProductRating(productId);
     console.log("✅ Product rating updated:", {
       avgRating: updatedProduct.rating,
@@ -88,11 +92,13 @@ export const submitRating = async (req, res) => {
       }
     }
 
-    res.status(201).json({ 
+    res.status(201).json({
       success: true,
-      message: "✅ Rating submitted successfully", 
+      message: "✅ Rating submitted successfully",
       rating: newRating,
       remaining: user.remaining,
+      updatedBalance: user.balance,
+      updatedEarning: user.earning,
       productRating: {
         average: updatedProduct.rating,
         count: updatedProduct.ratedCount
@@ -100,13 +106,14 @@ export const submitRating = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Error submitting rating:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: "❌ Error submitting rating", 
-      error: err.message 
+      message: "❌ Error submitting rating",
+      error: err.message
     });
   }
 };
+
 
 // ✅ Helper: Update Product Average Rating (SYNCHRONOUS)
 async function updateProductRating(productId) {

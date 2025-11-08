@@ -1,7 +1,7 @@
 import Product from "../models/Product.js";
 import Rating from "../models/Rating.js";
 import DailyProductView from "../models/DailyProductView.js";
-
+import User from "../models/User.js";
 
 // ✅ Create product
 export const addProduct = async (req, res) => {
@@ -9,7 +9,7 @@ export const addProduct = async (req, res) => {
     console.log("Received body:", req.body);       // Check text fields
     console.log("Received file:", req.file);   
 
-    const { name, description, rating, ratedCount, addedBy, now, income, plan } = req.body;
+    const { name, description, rating, ratedCount, addedBy, now, income, plan, isLuckyOrderProduct } = req.body;
 
     if (!name || !addedBy) {
       return res.status(400).json({ message: "Name and addedBy are required" });
@@ -27,7 +27,8 @@ export const addProduct = async (req, res) => {
       addedBy,
       createdAt: now || new Date(),
       income,
-      plan
+      plan,
+      isLuckyOrderProduct
     });
 
     await product.save();
@@ -95,27 +96,43 @@ export const deleteProduct = async (req, res) => {
 export const getUnratedProducts = async (req, res) => {
   try {
     const userId = req.user.id;
-    const today = new Date().toISOString().split("T")[0]; // e.g., "2025-11-07"
+    const today = new Date().toISOString().split("T")[0];
+
+    // Fetch the logged-in user's plan
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const userPlan = user.plan;
 
     // Check if today's set already exists
     let dailyView = await DailyProductView.findOne({ userId, date: today });
 
     if (dailyView) {
-      // Already generated today → fetch the same products
-      const products = await Product.find({ _id: { $in: dailyView.productIds } });
+      // Already generated today → fetch same products
+      const products = await Product.find({
+        _id: { $in: dailyView.productIds },
+        plan: userPlan, // ensure only same-plan products
+      });
       return res.status(200).json(products);
     }
 
-    // Otherwise, generate new 30 unrated products
+    // Otherwise, generate new 30 unrated products (same plan only)
     const ratedProductIds = await Rating.find({ userId }).distinct("productId");
 
     const unratedProducts = await Product.aggregate([
-      { $match: { _id: { $nin: ratedProductIds } } },
-      { $sample: { size: 30 } } // random 30
+      {
+        $match: {
+          _id: { $nin: ratedProductIds },
+          plan: userPlan, // filter by same plan
+        },
+      },
+      { $sample: { size: 30 } },
     ]);
 
     // Save this set for today
-    const productIds = unratedProducts.map(p => p._id);
+    const productIds = unratedProducts.map((p) => p._id);
     await DailyProductView.create({ userId, date: today, productIds });
 
     res.status(200).json(unratedProducts);

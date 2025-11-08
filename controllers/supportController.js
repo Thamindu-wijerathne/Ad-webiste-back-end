@@ -64,7 +64,8 @@ export const addReply = async (req, res) => {
     }
     const t = await Support.findById(req.params.id);
     if (!t) return res.status(404).json({ message: "Not found" });
-    t.replies.push({ message, isAdmin: !!isAdmin, imageUrl });
+    const isAdminBool = String(isAdmin).toLowerCase() === "true";
+    t.replies.push({ message, isAdmin: isAdminBool, imageUrl });
     await t.save();
     res.status(201).json(toDTO(t));
   } catch (e) {

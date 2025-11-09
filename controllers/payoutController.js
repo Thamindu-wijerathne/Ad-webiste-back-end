@@ -54,3 +54,39 @@ export const getPayoutHistory = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch payout history" });
   }
 };
+
+export const updatePayoutStatus = async (req, res) => {
+  try {
+    const { payoutId } = req.params;
+    const { status } = req.body;
+    const adminId = req.user.id;
+
+    if (!["completed", "rejected"].includes(status))
+      return res.status(400).json({ error: "Invalid status" });
+
+    const payout = await Payout.findById(payoutId);
+    if (!payout) return res.status(404).json({ error: "Payout not found" });
+    if (payout.status !== "pending")
+      return res.status(400).json({ error: "Already processed" });
+
+    payout.status = status;
+    payout.processedAt = new Date();
+    payout.processedBy = adminId;
+    await payout.save();
+
+    res.json({ success: true, message: `Payout ${status}!`, payout });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+// ADMIN: Get all payouts (raw, no population, no sorting)
+export const getAllPayouts = async (req, res) => {
+  try {
+    const payouts = await Payout.find(); // Only this line
+    res.json(payouts);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch payouts" });
+  }
+};

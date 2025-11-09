@@ -73,7 +73,8 @@ export const login = async (req, res) => {
             remaining: user.remaining,
             balance: user.balance,
             earning: user.earning,
-            plan: user.plan
+            plan: user.plan,
+            tempId: user.tempId
             }, 
         token });
   } catch (err) {

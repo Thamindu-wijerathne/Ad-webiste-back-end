@@ -200,63 +200,73 @@ export const getUnratedProducts = async (req, res) => {
     const userPlan = user.plan;
     console.log("User plan:", userPlan);
 
+    // If plan is "none" → just return 30 random products (ignores daily tracking)
+    if (!userPlan || userPlan === "none") {
+      const products = await Product.aggregate([
+        { $match: { isLuckyOrderProduct: "no" } },
+        { $sample: { size: 30 } },
+      ]);
+      console.log("Plan is none → returning 30 random products:", products.length);
+      return res.status(200).json(products);
+    }
+
     // ✅ Check if today's product set already exists
     let dailyView = await DailyProductView.findOne({ userId, date: today });
 
-if (dailyView) {
-  const products = await Product.find({
-    _id: { $in: dailyView.productIds },
-    plan: userPlan,
-    isLuckyOrderProduct: "no"
-  });
+    if (dailyView) {
+      const products = await Product.find({
+        _id: { $in: dailyView.productIds },
+        plan: userPlan,
+        isLuckyOrderProduct: "no"
+      });
 
-  if (products.length > 0) {
-    console.log("✅ Found today's product set, returning same 30 products");
-    return res.status(200).json(products);
-  } else {
-    console.log("⚠️ Today's product set empty or invalid — regenerating new 30 products");
-    await DailyProductView.deleteOne({ _id: dailyView._id }); // remove bad record
-  }
-}
-
+      if (products.length > 0) {
+        console.log("✅ Found today's product set, returning same 30 products");
+        return res.status(200).json(products);
+      } else {
+        console.log("⚠️ Today's product set empty or invalid — regenerating new 30 products");
+        await DailyProductView.deleteOne({ _id: dailyView._id }); // remove bad record
+      }
+    }
 
     // ✅ No record for today → generate new 30 products
     const ratedProductIds = await Rating.find({ userId }).distinct("productId");
+    console.log("Rated Product IDs:", ratedProductIds);
 
-console.log("Rated Product IDs:", ratedProductIds);
-
-const testCount = await Product.countDocuments({
-  plan: userPlan,
-  isLuckyOrderProduct: "no",
-});
-console.log("🧩 Matching products available for this plan:", testCount);
-
-const unratedProducts = await Product.aggregate([
-  {
-    $match: {
-      _id: { $nin: ratedProductIds },
+    const testCount = await Product.countDocuments({
       plan: userPlan,
-      isLuckyOrderProduct: "no"
-    }
-  },
-  { $sample: { size: 30 } }
-]);
+      isLuckyOrderProduct: "no",
+      _id: { $nin: ratedProductIds }
+    });
+    console.log("🧩 Matching products available for this plan:", testCount);
 
-console.log("🧩 Unrated products fetched:", unratedProducts.length);
+    const unratedProducts = await Product.aggregate([
+      {
+        $match: {
+          _id: { $nin: ratedProductIds },
+          plan: userPlan,
+          isLuckyOrderProduct: "no"
+        }
+      },
+      { $sample: { size: 30 } }
+    ]);
 
-
-    console.log(`Generated new set of ${unratedProducts.length} products for today`);
+    console.log("🧩 Unrated products fetched:", unratedProducts.length);
 
     // ✅ Save this new set
     const productIds = unratedProducts.map((p) => p._id);
     await DailyProductView.create({ userId, date: today, productIds });
 
+    console.log(`Generated new set of ${unratedProducts.length} products for today`);
     return res.status(200).json(unratedProducts);
+
   } catch (error) {
     console.error("❌ Error fetching daily unrated products:", error);
     res.status(500).json({ message: "Failed to fetch products" });
   }
 };
+
+
 
 
 

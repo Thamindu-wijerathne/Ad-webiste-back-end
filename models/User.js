@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema({
   luckydrawAttempt: {type: Number},
   balance: {type: Number},
   earning: {type: Number},
-  plan: {type: String},
+  plan: {type: String, default: "none"},
   luckyOrderId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", default: null },
 
 });

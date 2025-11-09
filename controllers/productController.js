@@ -148,33 +148,112 @@ export const deleteProduct = async (req, res) => {
 //   }
 // };
 
+// export const getUnratedProducts = async (req, res) => {
+//   console.log("🟢 getUnratedProducts started");
+
+//   try {
+//     const userId = req.user.id;
+//     console.log("User ID:", userId);
+
+//     // Fetch the logged-in user's plan
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       console.log("❌ User not found");
+//       return res.status(404).json({ message: "User not found" });
+//     }
+//     const userPlan = user.plan;
+//     console.log("User plan:", userPlan);
+
+//     // Fetch 30 random products for the user's plan, only where isLuckyOrderProduct is "no"
+//     const products = await Product.aggregate([
+//       { $match: { plan: userPlan, isLuckyOrderProduct: "no" } },
+//       { $sample: { size: 30 } },
+//     ]);
+
+//     console.log("Products fetched (no lucky order):", products.length, products);
+
+//     res.status(200).json(products);
+//   } catch (error) {
+//     console.error("❌ Error fetching products:", error);
+//     res.status(500).json({ message: "Failed to fetch products" });
+//   }
+// };
+
+
 export const getUnratedProducts = async (req, res) => {
   console.log("🟢 getUnratedProducts started");
 
   try {
     const userId = req.user.id;
-    console.log("User ID:", userId);
+    const today = new Date().toISOString().split("T")[0];
 
-    // Fetch the logged-in user's plan
+    console.log("User ID:", userId);
+    console.log("Today's date:", today);
+
+    // ✅ Fetch logged-in user
     const user = await User.findById(userId);
     if (!user) {
       console.log("❌ User not found");
       return res.status(404).json({ message: "User not found" });
     }
+
     const userPlan = user.plan;
     console.log("User plan:", userPlan);
 
-    // Fetch 30 random products for the user's plan, only where isLuckyOrderProduct is "no"
-    const products = await Product.aggregate([
-      { $match: { plan: userPlan, isLuckyOrderProduct: "no" } },
-      { $sample: { size: 30 } },
-    ]);
+    // ✅ Check if today's product set already exists
+    let dailyView = await DailyProductView.findOne({ userId, date: today });
 
-    console.log("Products fetched (no lucky order):", products.length, products);
+if (dailyView) {
+  const products = await Product.find({
+    _id: { $in: dailyView.productIds },
+    plan: userPlan,
+    isLuckyOrderProduct: "no"
+  });
 
-    res.status(200).json(products);
+  if (products.length > 0) {
+    console.log("✅ Found today's product set, returning same 30 products");
+    return res.status(200).json(products);
+  } else {
+    console.log("⚠️ Today's product set empty or invalid — regenerating new 30 products");
+    await DailyProductView.deleteOne({ _id: dailyView._id }); // remove bad record
+  }
+}
+
+
+    // ✅ No record for today → generate new 30 products
+    const ratedProductIds = await Rating.find({ userId }).distinct("productId");
+
+console.log("Rated Product IDs:", ratedProductIds);
+
+const testCount = await Product.countDocuments({
+  plan: userPlan,
+  isLuckyOrderProduct: "no",
+});
+console.log("🧩 Matching products available for this plan:", testCount);
+
+const unratedProducts = await Product.aggregate([
+  {
+    $match: {
+      _id: { $nin: ratedProductIds },
+      plan: userPlan,
+      isLuckyOrderProduct: "no"
+    }
+  },
+  { $sample: { size: 30 } }
+]);
+
+console.log("🧩 Unrated products fetched:", unratedProducts.length);
+
+
+    console.log(`Generated new set of ${unratedProducts.length} products for today`);
+
+    // ✅ Save this new set
+    const productIds = unratedProducts.map((p) => p._id);
+    await DailyProductView.create({ userId, date: today, productIds });
+
+    return res.status(200).json(unratedProducts);
   } catch (error) {
-    console.error("❌ Error fetching products:", error);
+    console.error("❌ Error fetching daily unrated products:", error);
     res.status(500).json({ message: "Failed to fetch products" });
   }
 };

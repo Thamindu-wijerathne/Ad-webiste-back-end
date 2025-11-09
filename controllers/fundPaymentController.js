@@ -50,17 +50,22 @@ export const createFundPayment = async (req, res) => {
   }
 };
 
-// 📄 Get all fund payment requests (Admin)
+// controllers/fundPaymentController.js
 export const getAllFundPayments = async (req, res) => {
-  try {
-    // console.log("📄 Fetching all fund payments");
-    const fundPayments = await FundPayment.find().populate("userID", "name email");
-    // console.log("✅ Total fund payments fetched:", fundPayments.length);
-    res.status(200).json(fundPayments);
-  } catch (error) {
-    console.error("❌ Error fetching fund payments:", error);
-    res.status(500).json({ message: "❌ Error fetching fund payments", error: error.message });
-  }
+  const fundPayments = await FundPayment.find({})
+    .populate({ path: "userID", select: "tempId email username fullName" })
+    .lean();
+
+  const result = fundPayments.map(p => ({
+    ...p,
+    tempId: p.userID?.tempId ?? null,
+    userID: p.userID?._id?.toString(),
+    email: p.userID?.email ?? "",
+    username: p.userID?.username ?? "",
+    fullName: p.userID?.fullName ?? "",
+  }));
+
+  res.json(result);
 };
 
 // 🧾 Get fund payments for a specific user

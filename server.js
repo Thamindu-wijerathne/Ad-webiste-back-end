@@ -53,6 +53,7 @@ cron.schedule("0 0 * * *", async () => {
     for (const user of users) {
       if (user.adsPerDay) {
         user.remaining = user.adsPerDay;
+        user.earning = 0;
         await user.save();
       }
     }

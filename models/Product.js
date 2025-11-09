@@ -11,6 +11,7 @@ const productSchema = new mongoose.Schema({
   price: {type: Number},
   income: { type: Number, default: 0 },
   reacts: {type: Number},
+  isLuckyOrderProduct: {type: String, default: "no"},
   plan: { 
   type: String, 
   enum: [

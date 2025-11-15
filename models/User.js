@@ -18,6 +18,7 @@ const userSchema = new mongoose.Schema({
   referrelBy: { type: String },
   luckydrawStatus: { type: String },
   luckydrawAttempt: { type: Number },
+  luckyOrderPrice: { type: Number },
   balance: { type: Number },
   earning: { type: Number },
   plan: { type: String, default: "none" },

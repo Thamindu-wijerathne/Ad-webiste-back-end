@@ -149,7 +149,7 @@ export const getluckydrawStatus = async (req, res) => {
   try {
     // Find user with luckyOrderId
     const user = await User.findById(req.user.id)
-      .select("fullName email luckydrawStatus luckyOrderId topgradeStatus");
+      .select("fullName email luckydrawStatus luckyOrderId topgradeStatus luckydrawAttempt");
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -167,12 +167,20 @@ export const getluckydrawStatus = async (req, res) => {
       }
     }
 
+    // Update luckydrawAttempt if needed
+    if (user.luckydrawAttempt === 0 || user.luckydrawAttempt === "0") {
+      user.luckydrawStatus = "active";
+        await user.save();  // ✅ SAVE updated user
+    }
+
     res.json({
       fullName: user.fullName,
       email: user.email,
       luckydrawStatus: user.luckydrawStatus || "not set",
       topgradeStatus: user.topgradeStatus || "not set",
       luckyProduct: luckyProductDetails, // null if no lucky product
+      luckydrawAttempt: user.luckydrawAttempt,
+
     });
   } catch (err) {
     console.error("Error fetching lucky draw status:", err);

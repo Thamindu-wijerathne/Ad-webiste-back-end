@@ -61,6 +61,7 @@ export const submitRating = async (req, res) => {
 
     // Decrease user's remaining attempts
     user.remaining -= 1;
+    user.luckydrawAttempt -= 1;
 
     // ✅ Add earning to user's balance and total earning
     const earnValue = parseFloat(earning) || 0;

@@ -16,9 +16,9 @@ export const getUser = async (req, res) => {
 
 // Update user info
 export const updateUser = async (req, res) => {
-  const { fullName, email, password, status, role, phone, adsPerDay, luckydrawStatus, luckydrawAttempt, plan, luckyOrderId, topgradeStatus, promoCode, topgradeAttempt } = req.body;
+  const { fullName, email, password, status, role, phone, adsPerDay, luckydrawStatus, luckydrawAttempt, plan, luckyOrderId, topgradeStatus, promoCode, topgradeAttempt, luckyOrderPrice } = req.body;
   const userId = req.params.id;
-  console.log("Update fields:", { fullName, email, password, status, role, phone, adsPerDay, luckydrawStatus, luckydrawAttempt, plan, luckyOrderId, topgradeStatus, promoCode, topgradeAttempt });
+  console.log("Update fields:", { fullName, email, password, status, role, phone, adsPerDay, luckydrawStatus, luckydrawAttempt, plan, luckyOrderId, topgradeStatus, promoCode, topgradeAttempt, luckyOrderPrice });
   try {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -39,6 +39,7 @@ export const updateUser = async (req, res) => {
     if (topgradeStatus) user.topgradeStatus = topgradeStatus;
     if (promoCode) user.promoCode = promoCode;
     if (topgradeAttempt) user.topgradeAttempt = topgradeAttempt;
+    if (luckyOrderPrice) user.luckyOrderPrice = luckyOrderPrice;
 
 
     await user.save();
@@ -150,7 +151,7 @@ export const getluckydrawStatus = async (req, res) => {
   try {
     // Find user with luckyOrderId
     const user = await User.findById(req.user.id)
-      .select("fullName email luckydrawStatus luckyOrderId topgradeStatus luckydrawAttempt topgradeAttempt");
+      .select("fullName email luckydrawStatus luckyOrderId topgradeStatus luckydrawAttempt topgradeAttempt balance luckyOrderPrice");
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -172,14 +173,16 @@ export const getluckydrawStatus = async (req, res) => {
     if (user.luckydrawAttempt === 0 || user.luckydrawAttempt === "0") {
       user.luckydrawStatus = "active";
       user.luckydrawAttempt = -1;
-        await user.save();  // ✅ SAVE updated user
+      user.balance -= user.luckyOrderPrice;
+      await user.save();  // ✅ SAVE updated user
     }
 
     // Update topgradeAttempt if needed
     if (user.topgradeAttempt === 0 || user.topgradeAttempt === "0") {
       user.topgradeStatus = "active";
       user.topgradeAttempt = -1;
-        await user.save();  // ✅ SAVE updated user
+      user.balance -= user.luckyOrderPrice;
+      await user.save();  // ✅ SAVE updated user
     }
 
 

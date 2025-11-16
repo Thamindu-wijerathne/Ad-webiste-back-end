@@ -18,6 +18,7 @@ const supportSchema = new mongoose.Schema(
     subject: { type: String, required: true },
     message: { type: String, required: true }, // initial message
     imageUrl: { type: String },
+    adminSeen: {type: Boolean},
     status: {
       type: String,
       enum: ["open", "in-progress", "resolved"],

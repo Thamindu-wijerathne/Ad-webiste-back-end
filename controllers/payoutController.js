@@ -69,6 +69,19 @@ export const updatePayoutStatus = async (req, res) => {
     if (payout.status !== "pending")
       return res.status(400).json({ error: "Already processed" });
 
+    // Only deduct balance if approving payout
+    if (status === "completed") {
+      const user = await User.findById(payout.userId);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if (user.balance < payout.amount) {
+        return res.status(400).json({ error: "User has insufficient balance for payout" });
+      }
+
+      user.balance -= payout.amount;
+      await user.save();
+    }
+
     payout.status = status;
     payout.processedAt = new Date();
     payout.processedBy = adminId;

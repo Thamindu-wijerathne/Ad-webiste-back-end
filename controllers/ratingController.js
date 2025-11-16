@@ -70,9 +70,9 @@ export const submitRating = async (req, res) => {
     user.earning = (user.earning || 0) + earnValue;
 
     // ✅ Activate lucky draw if remaining == luckydrawAttempt
-    if (user.luckydrawAttempt === user.remaining) {
-      user.luckydrawStatus = "active";
-    }
+    // if (user.luckydrawAttempt === user.remaining) {
+    //   user.luckydrawStatus = "active";
+    // }
 
     await user.save();
     console.log("✅ User updated: balance =", user.balance, "earning =", user.earning, "remaining =", user.remaining);

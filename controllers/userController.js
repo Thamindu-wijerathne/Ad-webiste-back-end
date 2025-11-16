@@ -103,9 +103,9 @@ export const addRemainingAds = async (req, res) => {
     }
 
     // ✅ Activate lucky draw if remaining >= luckydrawAttempt
-    if (user.luckydrawAttempt && user.remaining >= user.luckydrawAttempt) {
-      user.luckydrawStatus = "active"
-    }
+    // if (user.luckydrawAttempt && user.remaining >= user.luckydrawAttempt) {
+    //   user.luckydrawStatus = "active"
+    // }
 
     await user.save()
 

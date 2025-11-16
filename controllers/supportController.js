@@ -10,6 +10,7 @@ const toDTO = (doc) => ({
   message: doc.message,
   imageUrl: doc.imageUrl,
   status: doc.status,
+  adminSeen: doc.adminSeen,
   createdAt: doc.createdAt,
   replies: doc.replies?.map((r) => ({
     id: r._id.toString(),
@@ -59,16 +60,32 @@ export const getTicketById = async (req, res) => {
 export const addReply = async (req, res) => {
   try {
     const { message, isAdmin } = req.body;
+
     let imageUrl = "";
+
     if (req.file) {
       imageUrl = req.file.path || req.file.secure_url || "";
     }
+
     const t = await Support.findById(req.params.id);
+
     if (!t) return res.status(404).json({ message: "Not found" });
+
     const isAdminBool = String(isAdmin).toLowerCase() === "true";
+    console.log("admin bool :", isAdminBool, req.params.id)
+
+    if (isAdminBool) {
+      await Support.findByIdAndUpdate(req.params.id, { adminSeen: false });
+    } else {
+      await Support.findByIdAndUpdate(req.params.id, { adminSeen: true });
+    }
+
     t.replies.push({ message, isAdmin: isAdminBool, imageUrl });
+
     await t.save();
+
     res.status(201).json(toDTO(t));
+
   } catch (e) {
     res.status(400).json({ message: e.message });
   }

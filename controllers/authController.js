@@ -17,6 +17,18 @@ export const signup = async (req, res) => {
       if (existingUsername) return res.status(400).json({ message: "Username already exists" });
     }
 
+        // -----------------------------
+    // 🔥 Generate unique tempId here
+    // -----------------------------
+    let tempId;
+    let exists = true;
+
+    while (exists) {
+      tempId = Math.floor(100000 + Math.random() * 900000); // 6-digit number
+      exists = await User.exists({ tempId });
+    }
+    // -----------------------------
+
     // const hashed = await bcrypt.hash(password, 10);
 
     const role = "user";
@@ -25,7 +37,7 @@ export const signup = async (req, res) => {
 
     console.log(fullName, firstName, lastName, username, email, password, referralCode, role, status, phone)
 
-    const user = await User.create({ fullName, firstName, lastName, username, email, password, phone, referrelBy: referralCode, role, status, balance});
+    const user = await User.create({ fullName, firstName, lastName, username, email, password, phone, referrelBy: referralCode, role, status, balance, tempId});
     console.log("signup user : ", user);
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });

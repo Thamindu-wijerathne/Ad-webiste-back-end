@@ -30,20 +30,20 @@ const userSchema = new mongoose.Schema({
 });
 
 // 👇 Generate a unique tempId before saving
-userSchema.pre("save", async function (next) {
-  if (!this.tempId) {
-    let unique = false;
-    let newId;
+// userSchema.pre("save", async function (next) {
+//   if (!this.tempId) {
+//     let unique = false;
+//     let newId;
 
-    while (!unique) {
-      newId = Math.floor(100000 + Math.random() * 900000); // random 6-digit number
-      const exists = await mongoose.models.User.findOne({ tempId: newId });
-      if (!exists) unique = true;
-    }
+//     while (!unique) {
+//       newId = Math.floor(100000 + Math.random() * 900000); // random 6-digit number
+//       const exists = await mongoose.models.User.findOne({ tempId: newId });
+//       if (!exists) unique = true;
+//     }
 
-    this.tempId = newId;
-  }
-  next();
-});
+//     this.tempId = newId;
+//   }
+//   next();
+// });
 
 export default mongoose.model("User", userSchema);

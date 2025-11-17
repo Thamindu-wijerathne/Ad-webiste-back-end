@@ -17,9 +17,16 @@ import User from "./models/User.js";
 dotenv.config();
 const app = express();
 
+// Allow both FRONTEND_URL and FRONTEND_URL_2
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL_2
+].filter(Boolean); // removes undefined/empty
+
+
 // 👇 Configure CORS for your frontend
 app.use(cors({
-  origin: process.env.FRONTEND_URL, // your frontend URL
+  origin: allowedOrigins, // your frontend URL
   methods: ["GET", "POST", "PATCH","PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"], // ✅ Added Authorization
   credentials: true // allow cookies/auth headers
